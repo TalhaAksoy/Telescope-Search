@@ -15,7 +15,7 @@
     "commands": [
       {
         "command": "vscode-telescope.telescope",
-        "title": "Telescope"
+        "title": "Telescope: Open Telescope Panel"
       }
     ]
   },

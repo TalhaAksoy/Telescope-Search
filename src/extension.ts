@@ -178,6 +178,10 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }
 
+		const iconUriLight = vscode.Uri.joinPath(context.extensionUri, 'media', 'telescope-light.svg');
+    const iconUriDark = vscode.Uri.joinPath(context.extensionUri, 'media', 'telescope-dark.svg');
+
+
     const panel = vscode.window.createWebviewPanel(
       'telescopeSearch',
       'Telescope Search',
@@ -186,6 +190,11 @@ export async function activate(context: vscode.ExtensionContext) {
         enableScripts: true,
       }
     );
+
+		panel.iconPath = {
+      light: iconUriLight,
+      dark: iconUriDark
+    };
 
     panel.webview.html = getHtmlForWebview(panel.webview, context);
 
