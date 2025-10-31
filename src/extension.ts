@@ -2,10 +2,15 @@ import * as vscode from 'vscode';
 import { getHtmlForWebview } from './getHtmlWebView';
 import { runRipgrep } from './runRipgrep';
 import * as path from 'path';
-// YENİ: Shiki'yi dinamik import edeceğimiz için,
-// türlerini ayrı olarak import ediyoruz.
+
+// Import Shiki types for v1+ (ESM) from a CommonJS module.
+// 'with { 'resolution-mode': 'import' }' is required by modern TypeScript
+// to correctly resolve the types from an ES module.
 import type { Highlighter, BundledLanguage } from 'shiki' with { 'resolution-mode': 'import' };
 
+/**
+ * Defines the structure for a single search result from Ripgrep.
+ */
 export type RipgrepResult = {
   label: string,
   description: string,
@@ -13,17 +18,32 @@ export type RipgrepResult = {
   line: number,
 }
 
-// YENİ: Değişkenlerin türlerini `shiki` v1'den alıyoruz
-let highlighter: Highlighter | undefined;
-let shiki: typeof import('shiki', { with: { 'resolution-mode': 'import' } }); // Dinamik import'un türünü tutar
+// --- Global Variables ---
+// These are defined globally so they can be initialized once in 'activate'
+// and then reused every time the 'vscode-telescope.telescope' command is run.
 
-// YENİ: getLangId fonksiyonunun dönüş türünü BundledLang yapıyoruz
-// Bu, shiki'nin bildiği dillerle kısıtlar
+/**
+ * The Shiki highlighter instance.
+ * It's loaded asynchronously on activation.
+ */
+let highlighter: Highlighter | undefined;
+
+/**
+ * The imported Shiki module namespace.
+ * Used to call 'createHighlighter'.
+ */
+let shiki: typeof import('shiki', { with: { 'resolution-mode': 'import' } });
+
+/**
+ * Maps a file extension to a Shiki language identifier.
+ * @param filePath The full path to the file.
+ * @returns A {BundledLanguage} string (e.g., 'typescript', 'python', 'text').
+ */
 function getLangId(filePath: string): BundledLanguage {
   const ext = path.extname(filePath).substring(1);
 
   switch (ext) {
-    // Web Dilleri
+    // Web Languages
     case 'js':
     case 'mjs':
     case 'cjs':
@@ -46,11 +66,11 @@ function getLangId(filePath: string): BundledLanguage {
     case 'xml':
       return 'xml';
     case 'svg':
-      return 'xml'; // veya 'html' de tercih edilebilir
-    case 'jsonc': // Yorumlu JSON
+      return 'xml';
+    case 'jsonc':
       return 'jsonc';
       
-    // Popüler Backend Dilleri
+    // Popular Backend Languages
     case 'py':
     case 'pyw':
       return 'python';
@@ -75,12 +95,12 @@ function getLangId(filePath: string): BundledLanguage {
     case 'dart':
       return 'dart';
 
-    // C Ailesi
+    // C-Family
     case 'c':
-    case 'h': // C header
+    case 'h':
       return 'c';
     case 'cpp':
-    case 'hpp': // C++ header
+    case 'hpp':
     case 'cc':
     case 'cxx':
       return 'cpp';
@@ -88,11 +108,11 @@ function getLangId(filePath: string): BundledLanguage {
     // Shell & Scripting
     case 'sh':
     case 'bash':
-      return 'bash'; // 'shell' veya 'sh' de olabilir
+      return 'bash';
     case 'ps1':
       return 'powershell';
     case 'bat':
-      return 'bat'; // Batch
+      return 'bat';
     case 'pl':
       return 'perl';
     case 'lua':
@@ -100,11 +120,11 @@ function getLangId(filePath: string): BundledLanguage {
     case 'r':
       return 'r';
 
-    // Veritabanı
+    // Database
     case 'sql':
       return 'sql';
 
-    // Dökümantasyon & Konfigürasyon
+    // Documentation & Config
     case 'md':
     case 'markdown':
       return 'markdown';
@@ -116,112 +136,131 @@ function getLangId(filePath: string): BundledLanguage {
     case 'ini':
       return 'ini';
     case 'env':
-      return 'dotenv'; // .env dosyaları
+      return 'dotenv';
     case 'dockerfile':
     case 'Dockerfile':
       return 'docker';
     
-    // Diğer
+    // Other
     case 'diff':
       return 'diff';
     case 'log':
       return 'log';
     
-    // HATA DÜZELTMESİ:
-    // Bilinmeyen veya uzantısız dosyalar için 'plaintext' yerine 'text' kullanıyoruz.
+    // Default fallback
     case 'txt':
     default:
-			//@ts-ignore
+      // @ts-ignore
+      // 'text' is the correct identifier for plain text in Shiki v1,
+      // even if the 'BundledLanguage' type definition is missing it.
       return 'text'; 
   }
 }
 
-// YENİ: activate fonksiyonu 'async' olmalı çünkü dinamik import yapacağız
+/**
+ * The main activation function for the extension.
+ * This is called once when the extension is first activated.
+ * @param context The extension context provided by VS Code.
+ */
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "vscode-telescope" is now active!');
 
-  // YENİ: Hata 1 (ESM/CJS) düzeltmesi: shiki'yi dinamik olarak import et
+  // Asynchronously load the Shiki ESM module.
   try {
     shiki = await import('shiki');
   } catch (e) {
-    console.error('Shiki kütüphanesi yüklenemedi. Renklendirme çalışmayacak.', e);
-    vscode.window.showErrorMessage('Shiki kütüphanesi yüklenemedi.');
-    // Shiki olmadan eklentinin devam etmesi anlamsızsa burada durabiliriz.
+    console.error('Failed to load Shiki library. Syntax highlighting will be disabled.', e);
+    vscode.window.showErrorMessage('Failed to load Shiki library.');
   }
   
-  // Highlighter'ı bir kez oluşturalım.
-  // Not: Dilleri önceden yüklemek performansı artırır.
+  // Initialize the highlighter once on activation.
+  // Pre-loading common languages improves performance.
   if (!highlighter && shiki) {
-    // Hata 2 (getHighlighter) düzeltmesi: 'createHighlighter' kullan
     highlighter = await shiki.createHighlighter({
-      // v1.x için popüler varsayılan temalar
       themes: ['vitesse-dark', 'vitesse-light'],
-      // Sık kullanılan dilleri önceden yükle
       langs: [
         'javascript', 'typescript', 'css', 'json', 'python', 'markdown', 
-        'java', 'csharp', 'go', 'php', 'ruby', 'rust', 'html', 'plaintext'
+        'java', 'csharp', 'go', 'php', 'ruby', 'rust', 'html', 
+        'text' // BUGFIX: Changed 'plaintext' to 'text' to match getLangId
       ]
     });
   }
 
+  // Register the main command that opens the webview panel.
+  // This command is triggered by the command palette or keybindings.
   const disposable = vscode.commands.registerCommand('vscode-telescope.telescope', async () => {
     
-    // Highlighter'ın hazır olduğundan emin ol (eğer ilk deneme başarısız olduysa)
+    // Fallback: If highlighter failed to init on activation, try again.
     if (!highlighter && shiki) {
       try {
         highlighter = await shiki.createHighlighter({
           themes: ['vitesse-dark', 'vitesse-light'],
-          langs: ['javascript', 'typescript', 'css', 'json', 'python', 'markdown', 'java', 'csharp', 'go', 'php', 'ruby', 'rust', 'html', 'plaintext']
+          langs: ['javascript', 'typescript', 'css', 'json', 'python', 'markdown', 
+                  'java', 'csharp', 'go', 'php', 'ruby', 'rust', 'html', 
+                  'text' // BUGFIX: Changed 'plaintext' to 'text' to match getLangId
+                ]
         });
       } catch (e) {
-         console.error('Highlighter oluşturulamadı', e);
+         console.error('Failed to create highlighter', e);
       }
     }
 
-		const iconUriLight = vscode.Uri.joinPath(context.extensionUri, 'media', 'telescope-light.svg');
+    // Define theme-aware icons for the editor tab
+    const iconUriLight = vscode.Uri.joinPath(context.extensionUri, 'media', 'telescope-light.svg');
     const iconUriDark = vscode.Uri.joinPath(context.extensionUri, 'media', 'telescope-dark.svg');
 
 
+    // Create the webview panel (opens as an editor tab)
     const panel = vscode.window.createWebviewPanel(
-      'telescopeSearch',
-      'Telescope Search',
-      vscode.ViewColumn.One,
+      'telescopeSearch',       // Internal ID
+      'Telescope Search',      // Title shown in tab
+      vscode.ViewColumn.One,   // Open in the primary editor column
       {
-        enableScripts: true,
+        enableScripts: true, // Allow JavaScript to run in the webview
       }
     );
 
-		panel.iconPath = {
+    // Set the theme-aware icon for the panel's tab
+    panel.iconPath = {
       light: iconUriLight,
       dark: iconUriDark
     };
 
+    // Set the HTML content for the webview
     panel.webview.html = getHtmlForWebview(panel.webview, context);
 
+    // --- Message Listener: Webview -> Extension ---
+    // Handle messages sent *from* the client-side JavaScript (in getHtmlWebView.ts)
     panel.webview.onDidReceiveMessage(
       async message => {
         switch (message.command) {
+          
+          // 'search': User is typing in the search box
           case 'search':
-            // ... (Değişiklik yok) ...
             const searchTerm = message.text;
+            // Don't search for empty or single-character strings
             if (!searchTerm || searchTerm.length <= 1) {
               panel.webview.postMessage({ command: 'results', data: [] });
               return;
             }
             try {
+              // Run the Ripgrep search
               const results = await runRipgrep(searchTerm, context);
+              // Send results back to the webview
               panel.webview.postMessage({ command: 'results', data: results });
             } catch (e) {
               console.error(e);
               panel.webview.postMessage({ command: 'error', data: String(e) });
             }
             return;
+          
+          // 'openFile': User clicked or pressed Enter on a result
           case 'openFile':
-            // ... (Değişiklik yok) ...
             const filePath = message.filePath;
-            const line = parseInt(message.line, 10) - 1;
+            const line = parseInt(message.line, 10) - 1; // to 0-based index
             try {
               const fileUri = vscode.Uri.file(filePath);
+              // Open the file in the editor and move selection to the correct line
               await vscode.window.showTextDocument(fileUri, {
                 preview: false,
                 selection: new vscode.Range(line, 0, line, 0)
@@ -232,32 +271,32 @@ export async function activate(context: vscode.ExtensionContext) {
             }
             return;
           
+          // 'getPreview': User selected a new item in the list
           case 'getPreview':
             const { filePath: previewFilePath, line: previewLine, searchTerm: previewSearchTerm } = message.data;
 
-            // Highlighter yüklenmemişse işlemi atla
             if (!previewFilePath || !previewLine || !highlighter) {
-              return;
+              return; // Highlighter not ready
             }
 
             try {
+              // 1. Read the file content
               const fileUri = vscode.Uri.file(previewFilePath);
               const fileBytes = await vscode.workspace.fs.readFile(fileUri);
               const fileContent = Buffer.from(fileBytes).toString('utf-8');
               
+              // 2. Get language ID and current VS Code theme
               const lang = getLangId(previewFilePath);
-
-              // Kullanıcının mevcut VS Code temasını al
               const themeKind = vscode.window.activeColorTheme.kind;
               const theme = themeKind === vscode.ColorThemeKind.Dark ? 'vitesse-dark' : 'vitesse-light';
 
-              // Hata 4 (codeToThemedTokens) düzeltmesi: 'codeToTokens' kullan
-              // ve '.tokens' özelliğine eriş.
+              // 3. Generate syntax-highlighted tokens using Shiki
               const tokenLines = highlighter.codeToTokens(fileContent, {
                 lang: lang,
                 theme: theme
-              }).tokens; // <-- .tokens eklemesi
+              }).tokens; // .tokens is the array of tokenized lines
 
+              // 4. Send the tokens back to the webview for rendering
               panel.webview.postMessage({
                 command: 'previewContent',
                 data: {
@@ -267,6 +306,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 }
               });
             } catch (e : any) {
+              // Handle file read or tokenization errors
               console.error(e);
               panel.webview.postMessage({
                 command: 'previewContent',
@@ -285,8 +325,11 @@ export async function activate(context: vscode.ExtensionContext) {
     );
   });
 
+  // Add the command to the extension's subscriptions
   context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() { }
+/**
+ * This method is called when the extension is deactivated.
+ */
+export function deactivate() {}
