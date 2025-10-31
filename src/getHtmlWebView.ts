@@ -3,13 +3,9 @@ import * as path from 'path';
 
 export function getHtmlForWebview(webview: vscode.Webview, context: vscode.ExtensionContext): string {
 
-    // CSP'yi biraz güncellememiz gerekiyor (stil etiketleri için)
-    // Aslında 'unsafe-inline' yeterli, ancak tema renklerini
-    // kullanmak için stil etiketlerine izin vermek iyi bir pratik.
-    // Senin kodunda zaten 'unsafe-inline' vardı, onu koruyoruz.
-    // Not: script-src için 'nonce' kullanmak daha güvenlidir
-    // ancak mevcut yapıyı bozmamak için 'unsafe-inline' ile devam ediyorum.
-
+    // CSP'yi (Content Security Policy) stil etiketlerine (shiki'nin renkleri için)
+    // izin verecek şekilde güncelliyoruz. 'unsafe-inline' zaten vardı,
+    // ama 'style-src'ye ${webview.cspSource} ve 'unsafe-inline' eklemek daha doğru.
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -35,60 +31,83 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
         .container {
             display: grid;
             height: 100%; width: 100%;
-            grid-template-rows: 1fr auto; /* İçerik ve arama kutusu */
+            grid-template-rows: 1fr auto; 
             gap: 0.5rem; padding: 0.5rem;
         }
         .content-panels {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Sol (dosyalar) ve Sağ (önizleme) */
-            gap: 0.5rem; min-height: 0; /* İçeriğin taşmasını engelle */
+            grid-template-columns: 1fr 1fr; 
+            gap: 0.5rem; min-height: 0; 
         }
         #files {
             border: 1px solid var(--vscode-panel-border);
-            overflow: auto; /* Sadece dosya listesi için dikey scroll */
+            overflow: auto; 
             padding: 0.25rem;
         }
         
-        /* YENİ: Önizleme paneli stilleri */
+        /* GÜNCELLENDİ: Önizleme paneli stilleri */
         #preview {
             border: 1px solid var(--vscode-panel-border);
-            overflow: auto; /* Önizleme için dikey/yatay scroll */
+            overflow: auto; 
             padding: 0.25rem;
-            /* VS Code editörünün yazı tipi ayarlarını kullanalım */
             font-family: var(--vscode-editor-font-family);
             font-size: var(--vscode-editor-font-size);
             line-height: var(--vscode-editor-line-height);
+            /* YENİ: pre içindeki boşlukları koru */
+            white-space: pre; 
+        }
+        #preview code {
+            /* code etiketi içindeki 'pre' boşluklarını koru */
+            white-space: inherit;
         }
         #preview pre {
             margin: 0;
             padding: 0;
+            /* pre'nin varsayılan padding/margin'ini sıfırla */
         }
-        /* YENİ: Önizlemedeki kod satırları için stiller */
         #preview .code-line {
-            display: flex; /* Satır no ve içeriği hizalamak için */
-            white-space: pre; /* <pre> içindeki boşlukları koru */
+            display: flex; 
+            /* YENİ: Satırın taşmasını engelle, 
+               ancak scrollbar #preview'de olacak */
+            min-width: max-content; 
         }
         #preview .line-number {
             display: inline-block;
-            width: 4em; /* Satır numaraları için sabit genişlik */
+            width: 4em; 
             padding-right: 0.5em;
             text-align: right;
             color: var(--vscode-editorLineNumber-foreground);
-            user-select: none; /* Satır noları seçilemesin */
+            user-select: none; 
         }
         #preview .line-content {
-            flex: 1; /* Satırın kalanını doldur */
+            flex: 1; 
         }
-        /* YENİ: Eşleşen satırı vurgulamak için stil */
         #preview .highlight-line {
-            background-color: var(--vscode-editor-lineHighlightBackground, #3c3c3c);
-            border: 1px solid var(--vscode-editor-lineHighlightBorder, #555);
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border: 1px solid var(--vscode-editor-lineHighlightBorder);
+            /* YENİ: Vurgunun tüm satırı kaplamasını sağla */
+            width: 100%;
         }
         #preview .highlight-line .line-number {
-            color: var(--vscode-editorLineNumber-activeForeground, #c6c6c6);
+            color: var(--vscode-editorLineNumber-activeForeground);
         }
 
+        /* YENİ: Aranan terim için <mark> stili */
+        mark {
+            /* VS Code'un bul ve vurgula renklerini kullan */
+            background-color: var(--vscode-editor-findMatchHighlightBackground);
+            color: inherit; /* Shiki'nin verdiği syntax rengini koru */
+            border: 1px solid var(--vscode-editor-findMatchHighlightBorder);
+            border-radius: 2px;
+        }
+        /* Aktif (vurgulanan) satırdaki terim daha da belirgin olsun */
+        .highlight-line mark {
+            background-color: var(--vscode-editor-findMatchBackground);
+            color: var(--vscode-editor-findMatchForeground);
+            border-color: var(--vscode-editor-findMatchBorder);
+        }
 
+        /* ... (Arama kutusu ve dosya öğesi stillerinizde değişiklik yok) ... */
         #searchBox {
             width: 100%;
             background-color: var(--vscode-input-background);
@@ -129,10 +148,8 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
 
     <div class="container">
         <div class="content-panels">
-            <div id="files">
-                </div>
-            <div id="preview">
-                </div>
+            <div id="files"></div>
+            <div id="preview"></div>
         </div>
         <input id="searchBox" type="text" placeholder="Search Term..." />
     </div>
@@ -142,25 +159,28 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             const vscode = acquireVsCodeApi();
             const searchBox = document.getElementById('searchBox');
             const filesDiv = document.getElementById('files');
-            const previewDiv = document.getElementById('preview'); // YENİ: Önizleme div'i
+            const previewDiv = document.getElementById('preview'); 
             let selectedIndex = 0;
             searchBox.focus();
 
-            // --- ARAMA KUTUSU (input) DİNLEYİCİSİ (GÜNCELLENDİ) ---
+            // YENİ: RegExp için özel karakterlerden kaçınma fonksiyonu
+            function escapeRegExp(string) {
+                return string.replace(/[.*+?^\\$\\{}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+            }
+
+            // --- ARAMA KUTUSU (input) DİNLEYİCİSİ ---
             searchBox.addEventListener('input', (event) => {
                 const searchTerm = event.target.value;
                 vscode.postMessage({
                     command: 'search',
                     text: searchTerm
                 });
-                
-                // YENİ: Arama kutusu boşsa önizlemeyi temizle
                 if (!searchTerm) {
                     previewDiv.innerHTML = '';
                 }
             });
 
-            // --- ARAMA KUTUSU (klavye) DİNLEYİCİSİ (Değişiklik yok) ---
+            // --- ARAMA KUTUSU (klavye) DİNLEYİCİSİ ---
             searchBox.addEventListener('keydown', (event) => {
                 const items = filesDiv.querySelectorAll('.file-item');
                 if (items.length === 0) return; 
@@ -180,7 +200,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         highlightSelectedItem(items);
                         break;
                     
-                    // YENİ: Enter tuşuna basıldığında dosyayı aç
+                    // GÜNCELLENDİ: Enter tuşu (açıklık için eklendi)
                     case 'Enter':
                         event.preventDefault();
                         const selectedItem = items[selectedIndex];
@@ -195,7 +215,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                 }
             });
 
-            // --- DOSYA LİSTESİ (tıklama) DİNLEYİCİSİ (Değişiklik yok) ---
+            // --- DOSYA LİSTESİ (tıklama) DİNLEYİCİSİ ---
             filesDiv.addEventListener('click', (event) => {
                 const clickedItem = event.target.closest('.file-item');
                 if (!clickedItem) return; 
@@ -222,7 +242,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                 switch (message.command) {
                     case 'results':
                         filesDiv.innerHTML = ''; 
-                        previewDiv.innerHTML = ''; // YENİ: Yeni arama yapıldığında önizlemeyi temizle
+                        previewDiv.innerHTML = ''; 
                         const results = message.data;
                         
                         if (results.length === 0) {
@@ -255,43 +275,59 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         filesDiv.innerHTML = \`<p class="info-text" style="color: red;">Hata: \${message.data}</p>\`;
                         break;
                     
-                    // YENİ: ÖNİZLEME MESAJINI İŞLEME BLOKU
+                    // YENİ: 'previewContent' case'i (TAMAMEN GÜNCELLENDİ)
                     case 'previewContent':
-                        const { fileContent, line } = message.data;
+                        const { tokenLines, line, searchTerm } = message.data;
                         previewDiv.innerHTML = ''; // Önceki önizlemeyi temizle
+
+                        // Arama terimini vurgulamak için RegExp oluştur
+                        // (Büyük/küçük harf duyarsız 'i' ve global 'g')
+                        const searchRegex = searchTerm ? new RegExp(escapeRegExp(searchTerm), 'gi') : null;
 
                         const pre = document.createElement('pre');
                         const code = document.createElement('code');
                         
-                        const lines = fileContent.split('\\n');
-                        const targetLineIndex = line - 1; // 1 tabanlıdan 0 tabanlıya geçiş
-                        const contextLines = 10; // Üstte ve altta gösterilecek satır sayısı
+                        const targetLineIndex = line - 1; // 1 tabanlıdan 0 tabanlıya
+                        let highlightedElement = null;
 
-                        // Gösterilecek satır aralığını hesapla
-                        const startLine = Math.max(0, targetLineIndex - contextLines);
-                        const endLine = Math.min(lines.length, targetLineIndex + contextLines + 1);
-
-                        let highlightedElement = null; // Vurgulanan satırı takip etmek için
-
-                        for (let i = startLine; i < endLine; i++) {
+                        // İstek 1: Tüm dosyayı işle (contextLines kaldırıldı)
+                        for (let i = 0; i < tokenLines.length; i++) {
                             const lineElement = document.createElement('div');
                             lineElement.className = 'code-line';
 
                             // Satır numarası
                             const numberElement = document.createElement('span');
                             numberElement.className = 'line-number';
-                            numberElement.textContent = i + 1; // 1 tabanlı satır numarası
+                            numberElement.textContent = i + 1; 
 
-                            // Satır içeriği
+                            // Satır içeriği (token'lar için)
                             const contentElement = document.createElement('span');
                             contentElement.className = 'line-content';
-                            // Satır içeriğini al veya boşsa bir boşluk koy
-                            contentElement.textContent = lines[i] || ' '; 
+
+                            // İstek 2: Shiki token'larını işle (Syntax Renkleri)
+                            const tokenLine = tokenLines[i];
+                            if (tokenLine.length === 0) {
+                                // Boş satırsa
+                                contentElement.innerHTML = ' '; // Boşluk ekle ki satır yüksekliği korunsun
+                            } else {
+                                for (const token of tokenLine) {
+                                    const span = document.createElement('span');
+                                    span.style.color = token.color;
+
+                                    // İstek 3: Arama terimini <mark> ile vurgula
+                                    if (searchRegex && token.content) {
+                                        span.innerHTML = token.content.replace(searchRegex, '<mark>$&</mark>');
+                                    } else {
+                                        span.textContent = token.content;
+                                    }
+                                    contentElement.appendChild(span);
+                                }
+                            }
 
                             // Hedef satırıysa, vurgula
                             if (i === targetLineIndex) {
                                 lineElement.classList.add('highlight-line');
-                                highlightedElement = lineElement; // Bu elemanı kaydet
+                                highlightedElement = lineElement;
                             }
 
                             lineElement.appendChild(numberElement);
@@ -305,7 +341,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         // Vurgulanan satırı görünür alana (ortaya) kaydır
                         if (highlightedElement) {
                             highlightedElement.scrollIntoView({
-                                behavior: 'auto', // Anında kaydır
+                                behavior: 'auto', 
                                 block: 'center'    // Dikey olarak ortala
                             });
                         }
@@ -315,36 +351,32 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
 
             // --- YARDIMCI FONKSİYON (GÜNCELLENDİ) ---
             function highlightSelectedItem(items) {
-                // Önce tüm seçimleri kaldır
                 items.forEach(item => item.classList.remove('selected'));
-                
                 const selectedItem = items[selectedIndex];
                 
                 if (selectedItem) {
-                    // Yeni öğeyi seç
                     selectedItem.classList.add('selected');
-                    // Seçili öğeyi dosya listesinde görünür alana kaydır
                     selectedItem.scrollIntoView({
                         behavior: 'auto', 
                         block: 'nearest' 
                     });
 
-                    // YENİ: Seçim değiştikçe eklentiye 'getPreview' mesajı gönder
+                    // GÜNCELLENDİ: 'getPreview' mesajına 'searchTerm' ekle
                     vscode.postMessage({
                         command: 'getPreview',
                         data: {
                             filePath: selectedItem.dataset.filePath,
-                            line: selectedItem.dataset.line
+                            line: selectedItem.dataset.line,
+                            searchTerm: searchBox.value // Arama kutusundaki mevcut değeri gönder
                         }
                     });
 
                 } else {
-                    // YENİ: Seçili öğe yoksa (örn. sonuç yoksa) önizlemeyi temizle
                     previewDiv.innerHTML = '';
                 }
             }
 
-        }()); // Script'i hemen çalıştır
+        }()); 
     </script>
 
 </body>
