@@ -79,8 +79,8 @@ If you wish to contribute to the development of this extension, you can set up a
 
 1.  Clone the repository:
     ```sh
-    git clone https://github.com/your-username/vscode-telescope.git
-    cd vscode-telescope
+    git clone https://gitlab.com/alhaKK/TelescopeSearch.git
+    cd TelescopeSearch
     ```
 
 2.  Install dependencies using `yarn` (as defined by the `.yarnrc` file):
@@ -93,14 +93,3 @@ If you wish to contribute to the development of this extension, you can set up a
 1.  Open the project folder in VS Code.
 2.  Press `F5` to open a new Extension Development Host window with the extension running.
 3.  In the new window, open a project folder and use the "Telescope: Open Telescope Panel" command to test the extension.
-
-### Running Tests
-
-The extension includes a suite of tests to ensure its functionality.
-
-1.  Make sure you have installed the dependencies (`yarn install`).
-2.  Run the tests from the command line:
-    ```sh
-    yarn test
-    ```
-    This will compile the TypeScript code, run the linter, and execute the test suite using the VS Code test runner.
