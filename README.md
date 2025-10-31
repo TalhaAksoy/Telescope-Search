@@ -1,71 +1,106 @@
-# vscode-telescope README
+# Vscode - Telescope
 
-This is the README for your extension "vscode-telescope". After writing up a brief description, we recommend including the following sections.
+Vscode - Telescope is a Visual Studio Code extension that provides a fast, interactive, and live file content search experience, inspired by Telescope for Neovim. It uses the power of `ripgrep` to deliver instant results and presents them in a clean, two-panel webview UI with a live code preview.
+
+![Telescope Demo](https://raw.githubusercontent.com/your-username/your-repo/main/media/demo.gif) 
+*(Note: You will need to create and add a demo GIF to your repository for this image to display.)*
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Live Search:** Results appear as you type.
+- **Fast & Efficient:** Powered by `ripgrep` for high-performance searching.
+- **Interactive UI:**
+    - A dedicated webview panel for searching.
+    - A list of results showing the file, line number, and matching text.
+    - A resizable preview panel with syntax highlighting that matches your current theme.
+- **Keyboard & Mouse Navigation:**
+    - Use `ArrowUp`/`ArrowDown` to navigate results and `Enter` to open the file.
+    - Click an item to preview it, click it again to open.
+- **Syntax Highlighting:** The preview panel uses `shiki` to provide accurate and theme-aware syntax highlighting.
 
-For example if there is an image subfolder under your extension project workspace:
+## Prerequisites
 
-\!\[feature X\]\(images/feature-x.png\)
+This extension requires the command-line tool **`ripgrep`** to be installed on your system and available in your system's PATH. `ripgrep` is the engine that powers the search functionality.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+### Installing `ripgrep`
 
-## Requirements
+- **macOS (via Homebrew):**
+  ```sh
+  brew install ripgrep
+  ```
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- **Windows (via Chocolatey or Scoop):**
+  ```sh
+  # Using Chocolatey
+  choco install ripgrep
 
-## Extension Settings
+  # Using Scoop
+  scoop install ripgrep
+  ```
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+- **Linux (Debian/Ubuntu):**
+  ```sh
+  sudo apt-get install ripgrep
+  ```
 
-For example:
+- **Other Platforms:** Please see the official [`ripgrep` installation instructions](https://github.com/BurntSushi/ripgrep#installation).
 
-This extension contributes the following settings:
+To verify the installation, open a terminal and run `rg --version`. You should see the version number printed.
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+## Installation
 
-## Known Issues
+1.  Open Visual Studio Code.
+2.  Go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
+3.  Search for "Vscode - Telescope".
+4.  Click "Install".
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Alternatively, you can install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=your-publisher.vscode-telescope). *(Note: You will need to publish the extension to the marketplace for this link to work.)*
 
-## Release Notes
+## Usage
 
-Users appreciate release notes as you update your extension.
+1.  Open the Telescope search panel using one of the following methods:
+    -   Press the keyboard shortcut: `Ctrl+Alt+T` (Windows/Linux) or `Cmd+Alt+T` (macOS).
+    -   Click the Telescope icon in the Activity Bar.
+    -   Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and type "Telescope: Open Telescope Panel".
 
-### 1.0.0
+2.  The "Telescope Search" panel will open. Start typing in the search box at the bottom.
 
-Initial release of ...
+3.  Results will appear in the left panel as you type.
 
-### 1.0.1
+4.  Navigate the results with your mouse or arrow keys to see a live preview in the right panel.
 
-Fixed issue #.
+5.  Press `Enter` or double-click a result to open the file and jump to the corresponding line.
 
-### 1.1.0
+## Development & Testing
 
-Added features X, Y, and Z.
+If you wish to contribute to the development of this extension, you can set up a local development environment.
 
----
+### Setup
 
-## Following extension guidelines
+1.  Clone the repository:
+    ```sh
+    git clone https://github.com/your-username/vscode-telescope.git
+    cd vscode-telescope
+    ```
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+2.  Install dependencies using `yarn` (as defined by the `.yarnrc` file):
+    ```sh
+    yarn install
+    ```
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+### Running the Extension Locally
 
-## Working with Markdown
+1.  Open the project folder in VS Code.
+2.  Press `F5` to open a new Extension Development Host window with the extension running.
+3.  In the new window, open a project folder and use the "Telescope: Open Telescope Panel" command to test the extension.
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+### Running Tests
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+The extension includes a suite of tests to ensure its functionality.
 
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+1.  Make sure you have installed the dependencies (`yarn install`).
+2.  Run the tests from the command line:
+    ```sh
+    yarn test
+    ```
+    This will compile the TypeScript code, run the linter, and execute the test suite using the VS Code test runner.
