@@ -135,7 +135,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             
             let selectedIndex = 0;
             let previewDebounceTimer;
-            const PREVIEW_DEBOUNCE_DELAY = 75; 
+            const PREVIEW_DEBOUNCE_DELAY = 50; 
 
             searchBox.focus();
 
@@ -214,25 +214,16 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                 switch (message.command) {
                     case 'results':
                         filesDiv.innerHTML = ''; 
-                        previewDiv.innerHTML = ''; // Yeni sonuçlar geldiğinde her zaman temizle
+                        previewDiv.innerHTML = ''; 
                         const results = message.data;
                         
                         if (results.length === 0) {
                             filesDiv.innerHTML = '<p class="info-text">Sonuç bulunamadı.</p>';
                             selectedIndex = -1; 
-                            
-                            // YENİ DÜZELTME:
-                            // "Sonuç bulunamadı." geldiğinde, bekleyen "eski" bir 
-                            // önizleme isteği olabileceği için highlightSelectedItem
-                            // fonksiyonunu (0 öğeyle) çağırıyoruz.
-                            // Bu, eski zamanlayıcıyı (debounce timer) iptal edecek
-                            // ve önizleme panelini (else bloğu) temizleyecektir.
                             highlightSelectedItem(filesDiv.querySelectorAll('.file-item'));
-
-                            return; // İşlem bitti.
+                            return;
                         }
                         
-                        // Sonuçlar varsa, listeyi oluştur
                         results.forEach((result, index) => { 
                             const item = document.createElement('div');
                             item.className = 'file-item';
@@ -248,7 +239,6 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                             filesDiv.appendChild(item);
                         });
                         
-                        // Listeyi oluşturduktan sonra ilk öğeyi seç
                         selectedIndex = 0; 
                         highlightSelectedItem(filesDiv.querySelectorAll('.file-item'));
                         break;
@@ -257,16 +247,57 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         filesDiv.innerHTML = '<p class="info-text" style="color: red;">Hata: ' + message.data + '</p>';
                         break;
                     
+                    // GÜNCELLENDİ: 'previewContent' Optimizasyonu
                     case 'previewContent':
                         const { tokenLines, line, searchTerm } = message.data;
                         previewDiv.innerHTML = ''; 
                         const searchRegex = searchTerm ? new RegExp(escapeRegExp(searchTerm), 'gi') : null;
                         const pre = document.createElement('pre');
                         const code = document.createElement('code');
-                        const targetLineIndex = line - 1; 
+                        
+                        const targetLineIndex = line - 1; // 1 tabanlıdan 0 tabanlıya
+                        const totalLines = tokenLines.length;
                         let highlightedElement = null;
 
-                        for (let i = 0; i < tokenLines.length; i++) {
+                        // --- YENİ OPTİMİZASYON MANTIĞI ---
+
+                        // 1. Panel yüksekliğine ve satır yüksekliğine göre
+                        //    gösterilecek satır sayısını hesapla.
+                        let singleLineHeight = parseFloat(window.getComputedStyle(previewDiv).lineHeight);
+                        if (isNaN(singleLineHeight) || singleLineHeight === 0) {
+                            // Güvenli bir varsayılan: font boyutunun 1.4 katı
+                            let fontSize = parseFloat(window.getComputedStyle(previewDiv).fontSize);
+                            if (isNaN(fontSize) || fontSize === 0) fontSize = 14; 
+                            singleLineHeight = Math.round(fontSize * 1.4);
+                        }
+                        
+                        const panelHeight = previewDiv.clientHeight;
+                        // Panel yüksekliğinin 1.5 katı kadar satır yükle
+                        // (scrollIntoView'un ortalama yapabilmesi için fazladan alan gerekir).
+                        // En az 40 satır yükle (küçük paneller için).
+                        const totalLinesToRender = Math.max(40, Math.ceil((panelHeight / singleLineHeight) * 1.5));
+                        
+                        // 2. Gösterilecek pencereyi (start/end) hesapla
+                        let startLine = targetLineIndex - Math.floor(totalLinesToRender / 2);
+                        let endLine = startLine + totalLinesToRender;
+
+                        // 3. Pencereyi dosyanın sınırlarına göre ayarla
+                        if (startLine < 0) {
+                            const overshoot = -startLine;
+                            startLine = 0;
+                            endLine = Math.min(totalLines, endLine + overshoot);
+                        }
+                        if (endLine > totalLines) {
+                            const overshoot = endLine - totalLines;
+                            endLine = totalLines;
+                            startLine = Math.max(0, startLine - overshoot);
+                        }
+                        // --- OPTİMİZASYON SONU ---
+
+
+                        // GÜNCELLENDİ: Döngü artık tüm dosyayı değil,
+                        // sadece hesaplanan 'startLine' ve 'endLine' arasını işler.
+                        for (let i = startLine; i < endLine; i++) {
                             const lineElement = document.createElement('div');
                             lineElement.className = 'code-line';
                             const numberElement = document.createElement('span');
@@ -274,7 +305,10 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                             numberElement.textContent = i + 1; 
                             const contentElement = document.createElement('span');
                             contentElement.className = 'line-content';
-                            const tokenLine = tokenLines[i];
+                            
+                            // tokenLines dizisi hala tüm dosyayı içerir,
+                            // bu yüzden 'i' indeksini güvenle kullanabiliriz.
+                            const tokenLine = tokenLines[i]; 
                             
                             if (tokenLine.length === 0) {
                                 contentElement.innerHTML = ' '; 
@@ -298,9 +332,12 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                             lineElement.appendChild(contentElement);
                             code.appendChild(lineElement);
                         }
+
                         pre.appendChild(code);
                         previewDiv.appendChild(pre);
                         
+                        // Bu fonksiyon hala çalışır, çünkü 'highlightedElement'
+                        // artık daha küçük bir DOM ağacının içinde.
                         if (highlightedElement) {
                             highlightedElement.scrollIntoView({ behavior: 'auto', block: 'center' });
                         }
@@ -310,19 +347,14 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
 
             // --- Yardımcı Fonksiyon: Seçimi Vurgula (Debounce'lu) ---
             function highlightSelectedItem(items) {
-                // 1. Önceki gecikmeli isteği her zaman iptal et
                 clearTimeout(previewDebounceTimer);
-
-                // 2. Seçimi UI'da anında güncelle
                 items.forEach(item => item.classList.remove('selected'));
-                const selectedItem = items[selectedIndex]; // (selectedIndex -1 ise 'undefined' olur)
+                const selectedItem = items[selectedIndex]; 
                 
                 if (selectedItem) {
-                    // 3a. Eğer seçili bir öğe varsa...
                     selectedItem.classList.add('selected');
                     selectedItem.scrollIntoView({ behavior: 'auto', block: 'nearest' });
 
-                    // Önizleme isteğini 250ms gecikmeyle gönder
                     previewDebounceTimer = setTimeout(() => {
                         vscode.postMessage({
                             command: 'getPreview',
@@ -334,8 +366,6 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         });
                     }, PREVIEW_DEBOUNCE_DELAY); 
                 } else {
-                    // 3b. Eğer seçili bir öğe yoksa (örn. sonuç bulunamadıysa)...
-                    // Önizleme panelini anında temizle.
                     previewDiv.innerHTML = '';
                 }
             }
