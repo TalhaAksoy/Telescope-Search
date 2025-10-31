@@ -17,6 +17,23 @@
         "command": "vscode-telescope.telescope",
         "title": "Telescope: Open Telescope Panel"
       }
+    ],
+    "menus": {
+      "activitybar/global": [
+        {
+          "command": "vscode-telescope.telescope",
+          "group": "navigation@1",
+          "icon": "media/telescope.svg",
+          "when": "true"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "vscode-telescope.telescope",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
+      }
     ]
   },
   "scripts": {
