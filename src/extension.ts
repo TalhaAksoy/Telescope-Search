@@ -69,7 +69,7 @@ function getLangId(filePath: string): BundledLanguage {
       return 'xml';
     case 'jsonc':
       return 'jsonc';
-      
+
     // Popular Backend Languages
     case 'py':
     case 'pyw':
@@ -140,20 +140,20 @@ function getLangId(filePath: string): BundledLanguage {
     case 'dockerfile':
     case 'Dockerfile':
       return 'docker';
-    
+
     // Other
     case 'diff':
       return 'diff';
     case 'log':
       return 'log';
-    
+
     // Default fallback
     case 'txt':
     default:
       // @ts-ignore
       // 'text' is the correct identifier for plain text in Shiki v1,
       // even if the 'BundledLanguage' type definition is missing it.
-      return 'text'; 
+      return 'text';
   }
 }
 
@@ -167,21 +167,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Asynchronously load the Shiki ESM module.
   try {
+    // @ts-ignore
     shiki = await import('shiki');
   } catch (e) {
     console.error('Failed to load Shiki library. Syntax highlighting will be disabled.', e);
     vscode.window.showErrorMessage('Failed to load Shiki library.');
   }
-  
+
   // Initialize the highlighter once on activation.
   // Pre-loading common languages improves performance.
   if (!highlighter && shiki) {
     highlighter = await shiki.createHighlighter({
       themes: ['vitesse-dark', 'vitesse-light'],
       langs: [
-        'javascript', 'typescript', 'css', 'json', 'python', 'markdown', 
-        'java', 'csharp', 'go', 'php', 'ruby', 'rust', 'html', 
-        'text' // BUGFIX: Changed 'plaintext' to 'text' to match getLangId
+        'javascript', 'typescript', 'html', 'css', 'json', 'markdown', 'text'
       ]
     });
   }
@@ -189,19 +188,18 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register the main command that opens the webview panel.
   // This command is triggered by the command palette or keybindings.
   const disposable = vscode.commands.registerCommand('vscode-telescope.telescope', async () => {
-    
+
     // Fallback: If highlighter failed to init on activation, try again.
     if (!highlighter && shiki) {
       try {
         highlighter = await shiki.createHighlighter({
           themes: ['vitesse-dark', 'vitesse-light'],
-          langs: ['javascript', 'typescript', 'css', 'json', 'python', 'markdown', 
-                  'java', 'csharp', 'go', 'php', 'ruby', 'rust', 'html', 
-                  'text' // BUGFIX: Changed 'plaintext' to 'text' to match getLangId
-                ]
+          langs: [
+            'javascript', 'typescript', 'html', 'css', 'json', 'markdown', 'text'
+          ]
         });
       } catch (e) {
-         console.error('Failed to create highlighter', e);
+        console.error('Failed to create highlighter', e);
       }
     }
 
@@ -234,12 +232,12 @@ export async function activate(context: vscode.ExtensionContext) {
     panel.webview.onDidReceiveMessage(
       async message => {
         switch (message.command) {
-          
+
           // 'search': User is typing in the search box
           case 'search':
             const searchTerm = message.text;
             // Don't search for empty or single-character strings
-            if (!searchTerm || searchTerm.length <= 1) {
+            if (!searchTerm || searchTerm.length <= 3) {
               panel.webview.postMessage({ command: 'results', data: [] });
               return;
             }
@@ -253,7 +251,7 @@ export async function activate(context: vscode.ExtensionContext) {
               panel.webview.postMessage({ command: 'error', data: String(e) });
             }
             return;
-          
+
           // 'openFile': User clicked or pressed Enter on a result
           case 'openFile':
             const filePath = message.filePath;
@@ -270,7 +268,7 @@ export async function activate(context: vscode.ExtensionContext) {
               console.error(e);
             }
             return;
-          
+
           // 'getPreview': User selected a new item in the list
           case 'getPreview':
             const { filePath: previewFilePath, line: previewLine, searchTerm: previewSearchTerm } = message.data;
@@ -284,9 +282,20 @@ export async function activate(context: vscode.ExtensionContext) {
               const fileUri = vscode.Uri.file(previewFilePath);
               const fileBytes = await vscode.workspace.fs.readFile(fileUri);
               const fileContent = Buffer.from(fileBytes).toString('utf-8');
-              
+
               // 2. Get language ID and current VS Code theme
-              const lang = getLangId(previewFilePath);
+              let lang = getLangId(previewFilePath);
+              try {
+                // Bu komut, 'kotlin' gibi dilleri ihtiyaç anında yükleyecektir.
+                await highlighter.loadLanguage(lang);
+              } catch (langError) {
+                // Dil bulunamazsa 'text'e düş
+                console.warn(`Shiki language '${lang}' not found. Falling back to 'text'.`);
+                //@ts-ignore
+                lang = 'text';
+                await highlighter.loadLanguage('text');
+              }
+
               const themeKind = vscode.window.activeColorTheme.kind;
               const theme = themeKind === vscode.ColorThemeKind.Dark ? 'vitesse-dark' : 'vitesse-light';
 
@@ -300,12 +309,12 @@ export async function activate(context: vscode.ExtensionContext) {
               panel.webview.postMessage({
                 command: 'previewContent',
                 data: {
-                  tokenLines: tokenLines, 
+                  tokenLines: tokenLines,
                   line: parseInt(previewLine, 10),
                   searchTerm: previewSearchTerm
                 }
               });
-            } catch (e : any) {
+            } catch (e: any) {
               // Handle file read or tokenization errors
               console.error(e);
               panel.webview.postMessage({
@@ -332,4 +341,4 @@ export async function activate(context: vscode.ExtensionContext) {
 /**
  * This method is called when the extension is deactivated.
  */
-export function deactivate() {}
+export function deactivate() { }
