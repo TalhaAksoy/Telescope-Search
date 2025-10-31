@@ -186,7 +186,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             });
 
             // --- ARAMA KUTUSU (klavye) DİNLEYİCİSİ ---
-            searchBox.addEventListener('keydown', (event) => {
+            window.addEventListener('keydown', (event) => {
                 const items = filesDiv.querySelectorAll('.file-item');
                 if (items.length === 0) return; 
 
