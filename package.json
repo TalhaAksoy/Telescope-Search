@@ -15,7 +15,13 @@
     "commands": [
       {
         "command": "vscode-telescope.telescope",
-        "title": "Telescope: Open Telescope Panel"
+        "title": "Telescope: Open Telescope Panel",
+        "category": "Telescope"
+      },
+      {
+        "command": "vscode-telescope.toggleTheme",
+        "title": "Telescope: Toggle Theme",
+        "category": "Telescope"
       }
     ],
     "menus": {

@@ -431,6 +431,22 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                             highlightedElement.scrollIntoView({ behavior: 'auto', block: 'center' });
                         }
                         break;
+                    // Theme Toggler
+                    case 'themeChanged':
+                        const selectedItem = filesDiv.querySelector('.file-item.selected');
+                        if (selectedItem) {
+                            // Önizlemeyi yeni temayla yeniden istemek için
+                            // 'getPreview' komutunu tekrar gönder.
+                            vscode.postMessage({
+                                command: 'getPreview',
+                                data: {
+                                    filePath: selectedItem.dataset.filePath,
+                                    line: selectedItem.dataset.line,
+                                    searchTerm: searchBox.value
+                                }
+                            });
+                        }
+                        break;
                 }
             });
 

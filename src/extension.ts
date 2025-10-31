@@ -23,6 +23,19 @@ export type RipgrepResult = {
 // and then reused every time the 'vscode-telescope.telescope' command is run.
 
 /**
+ * Holds the currently active webview panel, if one exists.
+ */
+let currentPanel: vscode.WebviewPanel | undefined = undefined;
+/**
+ * Stores the name of the currently selected Shiki theme.
+ */
+let currentTheme: string = 'vitesse-dark'; // Varsayılan tema
+/**
+ * The key used to store the theme in VS Code's global state.
+ */
+const THEME_STORAGE_KEY = 'telescopeTheme';
+
+/**
  * The Shiki highlighter instance.
  * It's loaded asynchronously on activation.
  */
@@ -165,6 +178,8 @@ function getLangId(filePath: string): BundledLanguage {
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "vscode-telescope" is now active!');
 
+  currentTheme = context.globalState.get<string>(THEME_STORAGE_KEY) || 'vitesse-dark';
+
   // Asynchronously load the Shiki ESM module.
   try {
     // @ts-ignore
@@ -178,7 +193,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Pre-loading common languages improves performance.
   if (!highlighter && shiki) {
     highlighter = await shiki.createHighlighter({
-      themes: ['vitesse-dark', 'vitesse-light'],
+      themes: [currentTheme, 'vitesse-dark', 'vitesse-light'],
       langs: [
         'javascript', 'typescript', 'html', 'css', 'json', 'markdown', 'text'
       ]
@@ -193,7 +208,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!highlighter && shiki) {
       try {
         highlighter = await shiki.createHighlighter({
-          themes: ['vitesse-dark', 'vitesse-light'],
+          themes: [currentTheme, 'vitesse-dark', 'vitesse-light'],
           langs: [
             'javascript', 'typescript', 'html', 'css', 'json', 'markdown', 'text'
           ]
@@ -201,6 +216,12 @@ export async function activate(context: vscode.ExtensionContext) {
       } catch (e) {
         console.error('Failed to create highlighter', e);
       }
+    }
+
+    // If Panel Open Get This Panel
+    if (currentPanel) {
+      currentPanel.reveal(vscode.ViewColumn.One);
+      return;
     }
 
     // Define theme-aware icons for the editor tab
@@ -215,8 +236,11 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.ViewColumn.One,   // Open in the primary editor column
       {
         enableScripts: true, // Allow JavaScript to run in the webview
+        retainContextWhenHidden: true , // If Panel Closed Context Is Save
       }
     );
+
+    currentPanel = panel;
 
     // Set the theme-aware icon for the panel's tab
     panel.iconPath = {
@@ -296,8 +320,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 await highlighter.loadLanguage('text');
               }
 
-              const themeKind = vscode.window.activeColorTheme.kind;
-              const theme = themeKind === vscode.ColorThemeKind.Dark ? 'vitesse-dark' : 'vitesse-light';
+              const theme = currentTheme;
 
               // 3. Generate syntax-highlighted tokens using Shiki
               const tokenLines = highlighter.codeToTokens(fileContent, {
@@ -336,6 +359,77 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Add the command to the extension's subscriptions
   context.subscriptions.push(disposable);
+
+  const themeToggleCommand = vscode.commands.registerCommand('vscode-telescope.toggleTheme', async () => {
+    if (!shiki || !highlighter){
+      vscode.window.showErrorMessage("Shiki highlighter is not ready.");
+      return;
+    }
+
+    const themeNames = Object.keys(shiki.bundledThemes).sort();
+
+    // 1. QuickPickItem nesne dizisini oluştur
+    const themeItems: vscode.QuickPickItem[] = themeNames.map(themeName => ({
+        label: themeName
+    }));
+
+    // 2. Mevcut (aktif) tema nesnesini bul
+    const activeThemeItem = themeItems.find(item => item.label === currentTheme);
+
+    // --- GÜNCELLENDİ: 'showQuickPick' yerine 'createQuickPick' kullan ---
+
+    // 3. QuickPick menüsünü oluştur
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.items = themeItems;
+    quickPick.placeholder = `Select a Shiki theme (current: ${currentTheme})`;
+    
+    // 4. Aktif öğeyi ayarla (showQuickPick'in yapamadığı şey)
+    if (activeThemeItem) {
+        quickPick.activeItems = [activeThemeItem];
+    }
+
+    // 5. Kullanıcı bir öğe seçtiğinde (Enter'a bastığında) ne olacağını tanımla
+    quickPick.onDidAccept(async () => {
+        // Seçilen öğeyi al
+        const chosenItem = quickPick.selectedItems[0];
+        
+        if (chosenItem && chosenItem.label !== currentTheme) {
+            const chosenThemeName = chosenItem.label;
+            
+            try {
+                // 1. Yeni Temayı Yükle
+                // @ts-ignore
+                await highlighter.loadTheme(chosenThemeName);
+                
+                // 2. Temayı Kaydet
+                currentTheme = chosenThemeName;
+                await context.globalState.update(THEME_STORAGE_KEY, currentTheme);
+
+                // 3. Açıksa Paneli Güncelle
+                if (currentPanel) {
+                    currentPanel.webview.postMessage({ command: 'themeChanged' });
+                }
+
+                vscode.window.showInformationMessage(`Telescope theme set to: ${chosenThemeName}`);
+
+            } catch (e) {
+                console.error(`Failed to load theme ${chosenThemeName}:`, e);
+                vscode.window.showErrorMessage(`Failed to load Shiki theme: ${chosenThemeName}`);
+            }
+        }
+        
+        // 6. İşlem bittikten sonra menüyü kapat
+        quickPick.hide();
+    });
+
+    // 7. Kullanıcı menüyü kapatırsa (örn. Esc'ye basarsa) temizle
+    quickPick.onDidHide(() => quickPick.dispose());
+
+    // 8. Menüyü göster
+    quickPick.show();
+  });
+
+  context.subscriptions.push(themeToggleCommand);
 }
 
 /**
