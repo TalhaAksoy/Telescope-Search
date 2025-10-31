@@ -195,7 +195,7 @@ export async function activate(context: vscode.ExtensionContext) {
           case 'search':
             // ... (Değişiklik yok) ...
             const searchTerm = message.text;
-            if (!searchTerm) {
+            if (!searchTerm || searchTerm.length <= 1) {
               panel.webview.postMessage({ command: 'results', data: [] });
               return;
             }
