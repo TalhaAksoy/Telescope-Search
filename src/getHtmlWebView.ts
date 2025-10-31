@@ -15,6 +15,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Webview UI</title>
     <style>
+        /* ... (TÜM CSS KODUNUZ BURADA - DEĞİŞİKLİK YOK) ... */
         html, body {
             margin: 0; padding: 0;
             height: 100vh; width: 100%;
@@ -31,25 +32,18 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             grid-template-rows: 1fr auto; 
             gap: 0.5rem; padding: 0.5rem;
         }
-
-        /* Panellerin olduğu alan */
         .content-panels {
             display: grid;
-            /* 3 sütunlu yapı (sol, ayırıcı, sağ) */
             grid-template-columns: 1fr 4px 1fr;
             gap: 0; 
             min-height: 0; 
         }
-
-        /* Sol dosya listesi */
         #files {
             grid-column: 1; 
             border: 1px solid var(--vscode-panel-border);
             overflow: auto; 
             padding: 0.25rem;
         }
-
-        /* Yeniden boyutlandırma tutamacı */
         .resizer {
             grid-column: 2; 
             background: var(--vscode-panel-border);
@@ -57,17 +51,11 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             width: 4px;
             height: 100%;
         }
-        .resizer:hover {
-            background: var(--vscode-focusBorder); 
-        }
-        
-        /* Sürüklerken metin seçimini engelle */
+        .resizer:hover { background: var(--vscode-focusBorder); }
         body.resizing {
             cursor: col-resize !important;
             user-select: none !important;
         }
-
-        /* Sağ önizleme paneli */
         #preview {
             grid-column: 3; 
             border: 1px solid var(--vscode-panel-border);
@@ -78,8 +66,6 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             line-height: var(--vscode-editor-line-height);
             white-space: pre; 
         }
-        
-        /* Önizleme içi kod stilleri */
         #preview code { white-space: inherit; }
         #preview pre { margin: 0; padding: 0; }
         #preview .code-line { display: flex; min-width: max-content; }
@@ -89,19 +75,14 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             user-select: none; 
         }
         #preview .line-content { flex: 1; }
-        
-        /* Vurgulanan (aktif) satır stili */
         #preview .highlight-line {
             background-color: var(--vscode-editor-lineHighlightBackground);
             border: 1px solid var(--vscode-editor-lineHighlightBorder);
-            /* 'Parlama' efekti için dış çizgi */
             outline: 1px solid var(--vscode-focusBorder);
             outline-offset: -1px; 
             width: 100%;
         }
         #preview .highlight-line .line-number { color: var(--vscode-editorLineNumber-activeForeground); }
-        
-        /* Aranan terim (<mark>) stili */
         mark {
             background-color: var(--vscode-editor-findMatchHighlightBackground);
             color: inherit; border: 1px solid var(--vscode-editor-findMatchHighlightBorder);
@@ -112,16 +93,12 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             color: var(--vscode-editor-findMatchForeground);
             border-color: var(--vscode-editor-findMatchBorder);
         }
-
-        /* Arama kutusu */
         #searchBox {
             width: 100%; background-color: var(--vscode-input-background);
             color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);
             padding: 0.5rem; border-radius: 2px;
         }
         #searchBox:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
-        
-        /* Dosya listesi öğesi */
         .file-item {
             padding: 4px 8px; cursor: pointer; border-radius: 2px;
             overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
@@ -158,13 +135,13 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             
             let selectedIndex = 0;
             let previewDebounceTimer;
-            const PREVIEW_DEBOUNCE_DELAY = 250; 
+            const PREVIEW_DEBOUNCE_DELAY = 75; 
 
             searchBox.focus();
 
             // --- Yardımcı Fonksiyon: RegExp Kaçış ---
             function escapeRegExp(string) {
-                return string.replace(/[.*+?^\\$\\{}()|[\]\\]/g, '\\$&');
+                return string.replace(/[.*+?^\$\{}()|[\]\\]/g, '\\$&');
             }
 
             // --- Olay Dinleyicisi: Arama Kutusu Girdisi ---
@@ -178,7 +155,6 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             window.addEventListener('keydown', (event) => {
                 const items = filesDiv.querySelectorAll('.file-item');
                 
-                // Navigasyon tuşlarını (Ok/Enter) her zaman yakala
                 switch (event.key) {
                     case 'ArrowUp':
                         event.preventDefault(); 
@@ -207,13 +183,8 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         }
                         return;
                 }
-
-                // Odak input'taysa, yazmaya izin ver
                 if (document.activeElement === searchBox) { return; }
-                // Kontrol tuşuysa (Shift vb.) es geç
                 if (event.key.length > 1 || event.metaKey || event.ctrlKey || event.altKey) { return; }
-                
-                // Odak input'ta değilse ve 'a' gibi bir tuşa basıldıysa: input'a odaklan
                 searchBox.focus();
             });
 
@@ -243,13 +214,25 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                 switch (message.command) {
                     case 'results':
                         filesDiv.innerHTML = ''; 
-                        previewDiv.innerHTML = ''; 
+                        previewDiv.innerHTML = ''; // Yeni sonuçlar geldiğinde her zaman temizle
                         const results = message.data;
+                        
                         if (results.length === 0) {
                             filesDiv.innerHTML = '<p class="info-text">Sonuç bulunamadı.</p>';
                             selectedIndex = -1; 
-                            return;
+                            
+                            // YENİ DÜZELTME:
+                            // "Sonuç bulunamadı." geldiğinde, bekleyen "eski" bir 
+                            // önizleme isteği olabileceği için highlightSelectedItem
+                            // fonksiyonunu (0 öğeyle) çağırıyoruz.
+                            // Bu, eski zamanlayıcıyı (debounce timer) iptal edecek
+                            // ve önizleme panelini (else bloğu) temizleyecektir.
+                            highlightSelectedItem(filesDiv.querySelectorAll('.file-item'));
+
+                            return; // İşlem bitti.
                         }
+                        
+                        // Sonuçlar varsa, listeyi oluştur
                         results.forEach((result, index) => { 
                             const item = document.createElement('div');
                             item.className = 'file-item';
@@ -264,6 +247,8 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                             item.appendChild(description);
                             filesDiv.appendChild(item);
                         });
+                        
+                        // Listeyi oluşturduktan sonra ilk öğeyi seç
                         selectedIndex = 0; 
                         highlightSelectedItem(filesDiv.querySelectorAll('.file-item'));
                         break;
@@ -325,14 +310,15 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
 
             // --- Yardımcı Fonksiyon: Seçimi Vurgula (Debounce'lu) ---
             function highlightSelectedItem(items) {
-                // Önceki gecikmeli isteği iptal et
+                // 1. Önceki gecikmeli isteği her zaman iptal et
                 clearTimeout(previewDebounceTimer);
 
-                // Seçimi UI'da anında güncelle
+                // 2. Seçimi UI'da anında güncelle
                 items.forEach(item => item.classList.remove('selected'));
-                const selectedItem = items[selectedIndex];
+                const selectedItem = items[selectedIndex]; // (selectedIndex -1 ise 'undefined' olur)
                 
                 if (selectedItem) {
+                    // 3a. Eğer seçili bir öğe varsa...
                     selectedItem.classList.add('selected');
                     selectedItem.scrollIntoView({ behavior: 'auto', block: 'nearest' });
 
@@ -348,20 +334,19 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         });
                     }, PREVIEW_DEBOUNCE_DELAY); 
                 } else {
+                    // 3b. Eğer seçili bir öğe yoksa (örn. sonuç bulunamadıysa)...
+                    // Önizleme panelini anında temizle.
                     previewDiv.innerHTML = '';
                 }
             }
 
             // --- Panel Yeniden Boyutlandırma Mantığı ---
-            
-            // 'mousemove' olayını yönetecek fonksiyon
             const doResize = (e) => {
                 e.preventDefault();
                 const leftPanelWidth = e.clientX - contentPanels.getBoundingClientRect().left;
                 const minWidth = 100;
                 const maxWidth = contentPanels.clientWidth - 100 - resizer.clientWidth;
 
-                // --- HATA DÜZELTMESİ (Aşağıdaki 3 satır) ---
                 if (leftPanelWidth < minWidth) {
                     contentPanels.style.gridTemplateColumns = \`\${minWidth}px 4px 1fr\`;
                 } else if (leftPanelWidth > maxWidth) {
@@ -370,23 +355,17 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                     contentPanels.style.gridTemplateColumns = \`\${leftPanelWidth}px 4px 1fr\`;
                 }
             };
-
-            // 'mouseup' olayını yönetecek fonksiyon
             const stopResize = () => {
                 window.removeEventListener('mousemove', doResize);
                 window.removeEventListener('mouseup', stopResize);
                 document.body.classList.remove('resizing');
             };
-
-            // 'mousedown' (başlangıç) olayını yönetecek fonksiyon
             const initResize = (e) => {
                 e.preventDefault();
                 window.addEventListener('mousemove', doResize);
                 window.addEventListener('mouseup', stopResize);
                 document.body.classList.add('resizing');
             };
-
-            // Ana olayı (tutamaça tıklama) dinleyiciye bağla
             resizer.addEventListener('mousedown', initResize);
 
         }()); 
