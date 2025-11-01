@@ -77,7 +77,7 @@ If you wish to contribute to the development of this extension, you can set up a
 
 1.  Clone the repository:
     ```sh
-    git clone https://gitlab.com/alhaKK/TelescopeSearch.git
+    git clone https://github.com/TalhaAksoy/Telescope-Search
     cd TelescopeSearch
     ```
 
