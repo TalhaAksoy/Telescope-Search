@@ -242,6 +242,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
     currentPanel = panel;
 
+    panel.onDidDispose(
+      () => {
+        currentPanel = undefined;
+      },
+      null, // 'this' context (gerekli değil)
+      context.subscriptions // Eklenti kapatıldığında bu dinleyiciyi de temizle
+    );
+
     // Set the theme-aware icon for the panel's tab
     panel.iconPath = {
       light: iconUriLight,
