@@ -189,7 +189,9 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             function escapeRegExp(string) {
                 // Escapes $ for the outer template literal, and then 
                 // escapes special regex chars.
-                return string.replace(/[.*+?^\$\{}()|[\]\\]/g, '\\$&');
+
+                // --- DÜZELTME 1: Kaçış karakteri (backslash) iki katına çıkarıldı ---
+                return string.replace(/[.*+?^\$\{}()|[\]\\]/g, '\\\\$&');
             }
 
             // --- Event Listener: Search Input ---
@@ -334,8 +336,22 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                     // 'previewContent': The tokenized, syntax-highlighted content arrived.
                     case 'previewContent':
                         const { tokenLines, line, searchTerm } = message.data;
-                        previewDiv.innerHTML = ''; 
-                        const searchRegex = searchTerm ? new RegExp(escapeRegExp(searchTerm), 'gi') : null;
+                        previewDiv.innerHTML = '';
+                        
+                        // --- DÜZELTME 2: YENİ VURGULAMA MANTIĞI ---
+                        // 1. Arama terimini "kelimelere" ayırın.
+                        //    (Sadece harf/rakam/alt çizgi olmayan her şeyi ayırıcı olarak kullan)
+                        const searchWords = searchTerm 
+                            ? searchTerm.split(/[^a-zA-Z0-9_]+/).filter(Boolean) 
+                            : [];
+
+                        // 2. Bu kelimelerden herhangi biriyle eşleşen bir regex oluşturun.
+                        //    (escapeRegExp'in DÜZELTİLDİĞİNDEN emin olarak)
+                        const highlightRegex = searchWords.length 
+                            ? new RegExp(searchWords.map(escapeRegExp).join('|'), 'gi') 
+                            : null;
+                        // --- YENİ MANTIĞIN SONU ---
+
                         const pre = document.createElement('pre');
                         const code = document.createElement('code');
                         
@@ -344,7 +360,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         let highlightedElement = null;
 
                         // --- Virtualized Preview Rendering ---
-                        // This logic renders only a "window" of the file (e.g., ~60 lines)
+                         // This logic renders only a "window" of the file (e.g., ~60 lines)
                         // around the target line, instead of rendering the entire file
                         // (which could be 100,000+ lines) to the DOM.
 
@@ -352,23 +368,17 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                         //    the preview panel's height and the computed line height.
                         let singleLineHeight = parseFloat(window.getComputedStyle(previewDiv).lineHeight);
                         if (isNaN(singleLineHeight) || singleLineHeight === 0) {
-                            // Fallback calculation
                             let fontSize = parseFloat(window.getComputedStyle(previewDiv).fontSize);
                             if (isNaN(fontSize) || fontSize === 0) fontSize = 14; 
                             singleLineHeight = Math.round(fontSize * 1.4);
                         }
                         
                         const panelHeight = previewDiv.clientHeight;
-                        // Render 1.5x the visible height to allow 'scrollIntoView: "center"'
-                        // to work correctly. Enforce a minimum of 40 lines.
                         const totalLinesToRender = Math.max(40, Math.ceil((panelHeight / singleLineHeight) * 1.5));
                         
-                        // 2. Calculate the start/end lines for the render window,
-                        //    centering the target line.
                         let startLine = targetLineIndex - Math.floor(totalLinesToRender / 2);
                         let endLine = startLine + totalLinesToRender;
 
-                        // 3. Clamp the window to the file boundaries (0 to totalLines).
                         if (startLine < 0) {
                             const overshoot = -startLine;
                             startLine = 0;
@@ -392,8 +402,6 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                             const contentElement = document.createElement('span');
                             contentElement.className = 'line-content';
                             
-                            // tokenLines array still holds the full file data,
-                            // so we just index into it.
                             const tokenLine = tokenLines[i]; 
                             
                             if (tokenLine.length === 0) {
@@ -404,12 +412,15 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
                                     const span = document.createElement('span');
                                     span.style.color = token.color;
                                     
-                                    // Highlight the search term on top of syntax highlighting
-                                    if (searchRegex && token.content) {
-                                        span.innerHTML = token.content.replace(searchRegex, '<mark>$&</mark>');
+                                    // --- DÜZELTME 2: VURGULAMA KONTROLÜ GÜNCELLENDİ ---
+                                    // 'searchRegex' yerine 'highlightRegex' kullanın.
+                                    if (highlightRegex && token.content) {
+                                        span.innerHTML = token.content.replace(highlightRegex, '<mark>$&</mark>');
                                     } else {
                                         span.textContent = token.content;
                                     }
+                                    // --- DEĞİŞİKLİK SONU ---
+
                                     contentElement.appendChild(span);
                                 }
                             }
@@ -488,7 +499,7 @@ export function getHtmlForWebview(webview: vscode.Webview, context: vscode.Exten
             }
 
             // --- Panel Resizing Logic ---
-            // This logic handles dragging the divider between the files and preview panels.
+            // (Bu bölümde değişiklik yok)
             
             /** Handles the 'mousemove' event to resize the grid columns. */
             const doResize = (e) => {

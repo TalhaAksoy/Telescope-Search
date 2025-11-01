@@ -261,7 +261,7 @@ export async function activate(context: vscode.ExtensionContext) {
           case 'search':
             const searchTerm = message.text;
             // Don't search for empty or single-character strings
-            if (!searchTerm || searchTerm.length <= 3) {
+            if (!searchTerm || searchTerm.length <= 2) {
               panel.webview.postMessage({ command: 'results', data: [] });
               return;
             }
