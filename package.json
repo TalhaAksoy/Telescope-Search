@@ -6,6 +6,8 @@
   "engines": {
     "vscode": "^1.105.0"
   },
+  "icon": "media/logo.jpg",
+  "publisher": "talhaAksoy",
   "categories": [
     "Other"
   ],
