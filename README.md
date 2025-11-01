@@ -2,7 +2,7 @@
 
 Vscode - Telescope is a Visual Studio Code extension that provides a fast, interactive, and live file content search experience, inspired by Telescope for Neovim. It uses the power of `ripgrep` to deliver instant results and presents them in a clean, two-panel webview UI with a live code preview.
 
-![Telescope Demo](https://raw.githubusercontent.com/your-username/your-repo/main/media/demo.gif) 
+![Telescope Demo](https://raw.githubusercontent.com/TalhaAksoy/Telescope-Search/master/media/how_to_use_low.gif) 
 *(Note: You will need to create and add a demo GIF to your repository for this image to display.)*
 
 ## Features
@@ -54,7 +54,7 @@ To verify the installation, open a terminal and run `rg --version`. You should s
 3.  Search for "Vscode - Telescope".
 4.  Click "Install".
 
-Alternatively, you can install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=your-publisher.vscode-telescope). *(Note: You will need to publish the extension to the marketplace for this link to work.)*
+Alternatively, you can install it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=TalhaAksoy.vscode-telescope). *(Note: You will need to publish the extension to the marketplace for this link to work.)*
 
 ## Usage
 
